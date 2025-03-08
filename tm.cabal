@@ -1,0 +1,21 @@
+cabal-version:      3.0
+name:               tm
+version:            0.1.0.0
+license:            MIT
+license-file:       LICENSE
+author:             CristhianMotoche
+maintainer:         cristhian.motoche@gmail.com
+category:           Sound
+build-type:         Simple
+extra-doc-files:    CHANGELOG.md
+
+common warnings
+    ghc-options: -Wall
+
+executable tm
+    import:           warnings
+    main-is:          Main.hs
+    build-depends:    base ^>=4.18.2.1,
+                      htaglib ^>=1.2.1
+    hs-source-dirs:   app
+    default-language: Haskell2010
