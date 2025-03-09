@@ -16,6 +16,8 @@ executable tm
     import:           warnings
     main-is:          Main.hs
     build-depends:    base ^>=4.18.2.1,
-                      htaglib ^>=1.2.1
+                      htaglib ^>=1.2.1,
+                      filepath,
+                      directory
     hs-source-dirs:   app
     default-language: Haskell2010
