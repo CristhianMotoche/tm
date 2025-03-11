@@ -5,12 +5,24 @@ import System.Exit (die)
 import System.FilePath
 import System.Directory (doesFileExist)
 
+data Command = Curate | Tag
+    deriving (Show, Eq)
+
+parseCommand :: String -> Maybe Command
+parseCommand "curate" = Just Curate
+parseCommand "tag" = Just Tag
+parseCommand _ = Nothing
+
 main :: IO ()
 main = do
     args <- getArgs
     case args of
-        [] -> die "Error: Absolute path to MP3 file is required"
-        (filePath:_) -> validatePath filePath
+        [] -> die "Error: Command (curate|tag) and absolute path to MP3 file are required"
+        [_] -> die "Error: Absolute path to MP3 file is required"
+        (cmd:filePath:_) -> 
+            case parseCommand cmd of
+                Nothing -> die "Error: Command must be either 'curate' or 'tag'"
+                Just command -> validatePath filePath
 
 validatePath :: FilePath -> IO ()
 validatePath path = do
