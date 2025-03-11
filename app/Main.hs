@@ -5,6 +5,11 @@ import System.Exit (die)
 import System.FilePath
 import System.Directory (doesFileExist)
 
+data MP3Info = MP3Info 
+    { songName :: String
+    , authorName :: String
+    } deriving Show
+
 main :: IO ()
 main = do
     args <- getArgs
@@ -29,4 +34,9 @@ validatePath path = do
             die "Error: Expected extension to be .mp3"
         (_, _, _, False) -> 
             die $ "Error: File not found: " ++ path
-        _ -> putStrLn $ "Not a valid route: " ++ path
+        _ -> do
+            let dirs = splitDirectories path
+                fileName = takeBaseName (last dirs)  -- obtiene el nombre del archivo sin extensión
+                author = last (init dirs)           -- obtiene el directorio padre
+                mp3Info = MP3Info fileName author
+            print mp3Info
