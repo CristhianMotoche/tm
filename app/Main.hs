@@ -1,9 +1,14 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Main where
 
 import System.Environment (getArgs)
 import System.Exit (die)
 import System.FilePath
-import System.Directory (doesFileExist)
+import System.Directory (doesFileExist, renameFile)
+import Text.Regex
+import Data.List (isSuffixOf)
+import qualified Data.Text as T
 
 data Command = Curate | Tag
     deriving (Show, Eq)
@@ -27,9 +32,40 @@ main = do
         (cmd:filePath:_) -> 
             case parseCommand cmd of
                 Nothing -> die "Error: Command must be either 'curate' or 'tag'"
-                Just command -> validatePath filePath
+                Just Curate -> do
+                   mp3Info <- validatePath filePath
+                   curateMP3 mp3Info filePath
+                   return ()
+                Just Tag -> putStrLn "TBD: Tag file"
 
-validatePath :: FilePath -> IO ()
+replaceKbpsPattern :: String -> String
+replaceKbpsPattern input = 
+    let pattern = "[ ]*(\\(|\\[)[0-9]+ ?[Kk][Bb]?[Pp][Ss](\\)|\\])"
+    in case matchRegexAll (mkRegex pattern) input of
+        Just (before, matched, after, _) -> before ++ after
+        Nothing -> input
+
+curateMP3 :: MP3Info -> FilePath -> IO ()
+curateMP3 mp3info originalPath = do
+    let oldName = songName mp3info
+        -- Remove patterns like (XXX Kbps), [XXX Kbps], etc
+        newName = T.unpack $ T.replace "  " " " $ 
+                   T.strip $ 
+                   T.pack $ 
+                   replaceKbpsPattern oldName
+        -- Create new path by replacing old filename with curated one
+        directory = takeDirectory originalPath
+        newPath = directory </> authorName mp3info </> newName <.> "mp3"
+    putStrLn oldName
+    putStrLn newName
+    if newPath /= originalPath
+        then do
+            renameFile originalPath newPath
+            putStrLn $ "File renamed from: " ++ originalPath
+            putStrLn $ "                to: " ++ newPath
+        else putStrLn "No curation needed"
+
+validatePath :: FilePath -> IO MP3Info
 validatePath path = do
     let isAbsolute' = isAbsolute path
         hasFolder = length (splitDirectories path) > 1
@@ -51,4 +87,4 @@ validatePath path = do
                 fileName = takeBaseName (last dirs)  -- obtiene el nombre del archivo sin extensión
                 author = last (init dirs)           -- obtiene el directorio padre
                 mp3Info = MP3Info fileName author
-            print mp3Info
+            return mp3Info
