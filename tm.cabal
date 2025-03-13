@@ -19,7 +19,9 @@ executable tm
                       htaglib ^>=1.2.1,
                       filepath,
                       directory,
-                      regex-compat,
-                      text
+                      text,
+                      mtl,
+                      transformers,
+                      parsec
     hs-source-dirs:   app
     default-language: Haskell2010
