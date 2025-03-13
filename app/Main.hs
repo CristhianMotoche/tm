@@ -55,7 +55,7 @@ curateMP3 mp3info originalPath = do
                    replaceKbpsPattern oldName
         -- Create new path by replacing old filename with curated one
         directory = takeDirectory originalPath
-        newPath = directory </> authorName mp3info </> newName <.> "mp3"
+        newPath = directory </> newName <.> "mp3"
     putStrLn oldName
     putStrLn newName
     if newPath /= originalPath
