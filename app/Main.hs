@@ -14,6 +14,10 @@ import Control.Monad.IO.Class (liftIO)
 import Text.Parsec hiding ((<|>))
 import Text.Parsec.String (Parser)
 import Control.Applicative ((<|>))
+import Network.HTTP.Simple
+import qualified Data.ByteString.Lazy as BL
+import Data.Aeson
+import Network.URI.Encode (encode)
 
 data Command = Curate | Tag
     deriving (Show, Eq)
@@ -62,7 +66,7 @@ kbpsParser = do
     spaces
     rate <- read <$> many1 digit
     spaces
-    _ <- (string "kbps" <|> string "Kbps" <|> string "KBPS")
+    _ <- string "kbps" <|> string "Kbps" <|> string "KBPS"
     spaces
     close <- char ')' <|> char ']'
     return $ KbpsPattern open rate close
@@ -142,6 +146,60 @@ executeCommand (ValidatedArgs command filePath) =
                 Left err -> die $ "Error: " ++ showValidationError err
                 Right mp3Info -> curateMP3 mp3Info filePath
         Tag -> putStrLn "TBD: Tag file"
+
+-- MusicBrainz API
+data MusicBrainzTrack = MusicBrainzTrack
+    { mbTitle :: String
+    , mbArtist :: String
+    , mbReleaseDate :: String
+    , mbGenres :: [String]
+    } deriving (Show, Eq)
+
+instance FromJSON MusicBrainzTrack where
+    parseJSON = withObject "MusicBrainzTrack" $ \obj -> do
+        recordings <- obj .: "recordings"
+        case recordings of
+            [] -> fail "No recordings found"
+            (recording:_) -> do
+                title <- recording .: "title"
+                
+                -- Get artist from artist-credit array
+                artistCredits <- recording .: "artist-credit"
+                artist <- case artistCredits of
+                    [] -> fail "No artist credits found"
+                    (credit:_) -> credit .: "name"
+                
+                -- Get release date from releases array
+                releases <- recording .:? "releases" .!= []
+                releaseDate <- case releases of
+                    [] -> return "Unknown"
+                    (release:_) -> release .:? "date" .!= "Unknown"
+                
+                -- Get genres from tags array
+                tags <- recording .:? "tags" .!= []
+                let genres = map (\tag -> tag .: "name") tags
+                
+                return $ MusicBrainzTrack
+                    { mbTitle = title
+                    , mbArtist = artist
+                    , mbReleaseDate = releaseDate
+                    , mbGenres = genres
+                    }
+
+searchMusicBrainz :: String -> String -> IO (Either String MusicBrainzTrack)
+searchMusicBrainz title artist = do
+    let query = encode $ "recording:" ++ title ++ " AND artist:" ++ artist
+        url = "https://musicbrainz.org/ws/2/recording/?query=" ++ query ++ "&fmt=json"
+    
+    request <- parseRequest url
+    let requestWithAgent = addRequestHeader "User-Agent" "YourApp/1.0" request
+    
+    response <- httpLBS request
+    case getResponseStatusCode response of
+        200 -> case decode (getResponseBody response) of
+            Just track -> Right track
+            Nothing -> Left "Failed to parse MusicBrainz response"
+        code -> Left $ "MusicBrainz API error: " ++ show code
 
 main :: IO ()
 main = do
