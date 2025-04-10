@@ -16,7 +16,7 @@ import Text.Parsec.String (Parser)
 import Control.Applicative ((<|>))
 import Network.HTTP.Simple
 import qualified Data.ByteString.Lazy as BL
-import Data.Aeson
+import Data.Aeson hiding (encode)
 import Network.URI.Encode (encode)
 
 data Command = Curate | Tag
@@ -177,7 +177,7 @@ instance FromJSON MusicBrainzTrack where
                 
                 -- Get genres from tags array
                 tags <- recording .:? "tags" .!= []
-                let genres = map (\tag -> tag .: "name") tags
+                genres <- sequence $ map (\tag -> tag .: "name") tags
                 
                 return $ MusicBrainzTrack
                     { mbTitle = title
@@ -195,7 +195,7 @@ searchMusicBrainz title artist = do
     let requestWithAgent = addRequestHeader "User-Agent" "YourApp/1.0" request
     
     response <- httpLBS request
-    case getResponseStatusCode response of
+    return $ case getResponseStatusCode response of
         200 -> case decode (getResponseBody response) of
             Just track -> Right track
             Nothing -> Left "Failed to parse MusicBrainz response"
