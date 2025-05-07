@@ -202,7 +202,9 @@ searchMusicBrainz title artist = do
 
     request <- parseRequest url
 
-    response <- httpLBS request
+    let requestWithHeaders = setRequestHeader "User-Agent" ["TM/0.1.0 (https://github.com/CristhianMotoche/tm)"] request
+
+    response <- httpLBS requestWithHeaders
     return $ case getResponseStatusCode response of
         200 -> case decode (getResponseBody response) of
             Just track -> Right track
