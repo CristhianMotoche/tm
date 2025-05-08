@@ -15,8 +15,10 @@ import           System.Directory           (doesFileExist, renameFile)
 import           System.Environment         (getArgs)
 import           System.Exit                (die)
 import           System.FilePath
+import           Text.Read                  (readMaybe)
 import           Text.Parsec                hiding ((<|>))
 import           Text.Parsec.String         (Parser)
+import           Sound.HTagLib
 
 data Command = Curate | Tag
     deriving (Show, Eq)
@@ -152,15 +154,16 @@ executeCommand (ValidatedArgs command filePath) = do
                     Right track -> do
                         putStrLn $ "Title: " ++ mbTitle track
                         putStrLn $ "Artist: " ++ mbArtist track
-                        putStrLn $ "Release Date: " ++ mbReleaseDate track
+                        putStrLn $ "Release Date: " ++ show (mbReleaseDate track)
                         putStrLn $ "Genres: " ++ unwords (mbGenres track)
-                putStrLn "TBD: Tag file"
+                        tagMP3 filePath track
+                        putStrLn "Done!"
 
 -- MusicBrainz API
 data MusicBrainzTrack = MusicBrainzTrack
     { mbTitle       :: String
     , mbArtist      :: String
-    , mbReleaseDate :: String
+    , mbReleaseDate :: Maybe Int
     , mbGenres      :: [String]
     } deriving (Show, Eq)
 
@@ -191,7 +194,7 @@ instance FromJSON MusicBrainzTrack where
                 return $ MusicBrainzTrack
                     { mbTitle = title
                     , mbArtist = artist
-                    , mbReleaseDate = releaseDate
+                    , mbReleaseDate = readMaybe releaseDate
                     , mbGenres = genres
                     }
 
@@ -210,6 +213,14 @@ searchMusicBrainz title artist = do
             Just track -> Right track
             Nothing    -> Left "Failed to parse MusicBrainz response"
         code -> Left $ "MusicBrainz API error: " ++ show code ++ show (getResponseBody response)
+
+tagMP3 :: FilePath -> MusicBrainzTrack -> IO ()
+tagMP3 filePath track =
+    setTags filePath Nothing $
+        titleSetter (mkTitle $ T.pack $ mbTitle track) <>
+        artistSetter (mkArtist $ T.pack $ mbArtist track) <>
+        maybe mempty (yearSetter . mkYear) (mbReleaseDate track) <>
+        genreSetter (mkGenre $ T.pack $ unwords $ mbGenres track)
 
 main :: IO ()
 main = do
